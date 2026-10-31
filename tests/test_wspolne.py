@@ -46,10 +46,10 @@ def test_niedozwolona_nazwa_katalogu(zla):
         sprawdz_identyfikator(zla)
 
 
-def test_ddl_inicjalizacji_katalog_i_cztery_schematy_idempotentnie():
+def test_ddl_inicjalizacji_cztery_schematy_bez_create_catalog():
     ddl = ddl_inicjalizacji("szkody_demo")
-    assert ddl[0] == "CREATE CATALOG IF NOT EXISTS szkody_demo"
-    assert ddl[1:] == [f"CREATE SCHEMA IF NOT EXISTS szkody_demo.{s}" for s in ("bronze", "silver", "gold", "ml")]
+    assert not any("CATALOG" in s for s in ddl)
+    assert ddl == [f"CREATE SCHEMA IF NOT EXISTS szkody_demo.{s}" for s in ("bronze", "silver", "gold", "ml")]
     assert all("IF NOT EXISTS" in s for s in ddl)
 
 

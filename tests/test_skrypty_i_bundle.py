@@ -73,7 +73,7 @@ def test_job_klaster_jednowezlowy_ds3_v2(bundle):
     klaster = job["job_clusters"][0]["new_cluster"]
     assert klaster["num_workers"] == 0
     assert klaster["node_type_id"] == "${var.node_type_id}"
-    assert bundle["variables"]["node_type_id"]["default"] == "Standard_DS3_v2"
+    assert bundle["variables"]["node_type_id"]["default"] == "Standard_D4ds_v5"
     assert klaster["spark_conf"]["spark.databricks.cluster.profile"] == "singleNode"
     assert klaster["custom_tags"]["ResourceClass"] == "SingleNode"
     assert klaster["spark_version"] == "${var.spark_version}"

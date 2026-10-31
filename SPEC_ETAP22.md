@@ -22,7 +22,7 @@ Poza zakresem: Delta Live Tables / Lakeflow, Feature Store online, serving endpo
    RG `rg-databricks-demo` (swedencentral), `azurerm_databricks_workspace` sku `premium` (`trial` odrzucony 31.10:
    TrialSkuNotSupportedForSubscriptionType na Free Trial; DBU z kredytu, szac. 2–5 $ na całe demo — NIESPRAWDZONE). Bez VNet injection.
    `plan`/`apply` uruchamia Kamil. Rejestracja providera `Microsoft.Databricks` — Kamil (`az provider register`).
-3. **Compute:** job cluster jednowęzłowy `Standard_DS3_v2` (4 vCPU = cały limit regionu 4/4, zmierzone 31.10),
+3. **Compute:** job cluster jednowęzłowy `Standard_D4ds_v5` (DS3_v2 odpadł 31.10: SkuNotAvailable w swedencentral; 4 vCPU = cały limit regionu 4/4, zmierzone 31.10),
    `spark_version` LTS ML (bieżące LTS z `databricks clusters spark-versions`), `num_workers: 0`,
    `spark.databricks.cluster.profile: singleNode`. Klaster jobowy ginie po jobie. Klaster interaktywny
    — tylko ręcznie, `autotermination_minutes: 10`. Dwa klastry naraz NIE wejdą w limit — job i klaster
@@ -51,7 +51,7 @@ Poza zakresem: Delta Live Tables / Lakeflow, Feature Store online, serving endpo
    Uwierzytelnienie: Azure OIDC (`azure/login`) + Databricks CLI `auth_type: azure-cli`. Service principal
    underwritera (ten sam app registration, nowy federated credential dla nowego repo) — dodanie go do
    workspace'u robi Kamil. Uruchamianie joba w CI: tylko `workflow_dispatch` (koszt VM), nie przy każdym pushu.
-10. **Koszt:** VM DS3_v2 + dyski + IP podczas biegu joba (~kilka–kilkanaście min/bieg); DBU Premium jobs z kredytu.
+10. **Koszt:** VM D4ds_v5 + dyski + IP podczas biegu joba (~kilka–kilkanaście min/bieg); DBU Premium jobs z kredytu.
     Po każdej sesji: Cost Management. Destroy razem z resztą 08.11 (`terraform destroy` W TYM repo + kontrola,
     że managed RG `databricks-rg-*` zniknęła).
 

@@ -14,8 +14,8 @@ variables:
     description: Runtime Databricks (LTS ML, bo scikit-learn i MLflow sa w obrazie)
     default: 17.3.x-cpu-ml-scala2.13 # 17.3 LTS ML, Spark 4.0 (potwierdzone 31.10: databricks clusters spark-versions)
   node_type_id:
-    description: Typ VM. DS3_v2 = 4 vCPU = caly limit regionu (zmierzone 31.10), wiec tylko jeden klaster naraz
-    default: Standard_DS3_v2
+    description: Typ VM. 4 vCPU = caly limit rodziny w regionie (31.10), wiec tylko jeden klaster naraz. DS3_v2 odpadl 31.10 - SkuNotAvailable w swedencentral
+    default: Standard_D4ds_v5
   eksperyment:
     description: Sciezka eksperymentu MLflow w workspace
     default: /Users/${workspace.current_user.userName}/szkody_demo

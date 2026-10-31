@@ -92,11 +92,13 @@ def tabele(katalog: str = DOMYSLNY_KATALOG) -> Tabele:
 
 
 def ddl_inicjalizacji(katalog: str = DOMYSLNY_KATALOG) -> list[str]:
-    """Instrukcje SQL tworzace katalog i schematy (idempotentne)."""
+    """Instrukcje SQL tworzace schematy (idempotentne) w ISTNIEJACYM katalogu.
+
+    Bez CREATE CATALOG: metastore bez storage_root odrzuca je nawet z IF NOT EXISTS
+    (INVALID_STATE, 31.10), wiec katalog musi juz istniec (katalog workspace'u).
+    """
     katalog = sprawdz_identyfikator(katalog)
-    instrukcje = [f"CREATE CATALOG IF NOT EXISTS {katalog}"]
-    instrukcje += [f"CREATE SCHEMA IF NOT EXISTS {katalog}.{schemat}" for schemat in SCHEMATY]
-    return instrukcje
+    return [f"CREATE SCHEMA IF NOT EXISTS {katalog}.{schemat}" for schemat in SCHEMATY]
 
 
 def ddl_tabeli(nazwa: str, typy: dict[str, str], dodatkowe: dict[str, str] | None = None) -> str:
