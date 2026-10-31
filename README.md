@@ -5,8 +5,11 @@ Mini-demo Azure Databricks: ten sam problem co Etap 15 w `underwriter_agent_demo
 champion/challenger na PR AUC), przeniesiony na Databricks: medallion w Delta + MLflow w Unity Catalog,
 wdrazany jako Databricks Asset Bundle. Specyfikacja: `SPEC_ETAP22.md`.
 
-**Stan: kod gotowy i przetestowany lokalnie, wdrozenie czeka na workspace** (zadanie 2 SPEC).
-Nic z tego nie zostalo jeszcze uruchomione na Databricks - szczegoly w sekcji "Niesprawdzone".
+> **Dane sa syntetyczne** (generator z ukryta regula + szum). Celem jest cykl data engineering + MLOps
+> na Databricks, nie jakosc modelu.
+
+**Stan (31.10.2026): wdrozone i uruchomione na Azure Databricks** - 3 biegi joba zielone, bramka
+raz promowala, raz odrzucila model (sekcja "Przebiegi"). Workspace jest tymczasowy (usuwany 08.11.2026).
 
 ## Struktura
 
@@ -28,10 +31,10 @@ infra/                         Terraform workspace'u (osobny tfstate; nie dotyka
 
 | Zadanie | Wejscie | Wyjscie | Uwagi |
 |---|---|---|---|
-| `bronze` | `generuj_zbior(3500, seed, przesuniecie)` | `bronze.zgloszenia_raw` (append) | kolumny `id_wiersza`, `_partia` (= seed), `_zaladowano`; tworzy katalog i schematy `IF NOT EXISTS` |
+| `bronze` | `generuj_zbior(3500, seed, przesuniecie)` | `bronze.zgloszenia_raw` (append) | kolumny `id_wiersza`, `_partia` (= seed), `_zaladowano`; tworzy schematy `IF NOT EXISTS` w istniejacym katalogu |
 | `silver` | bronze, partia `_partia = seed` | `silver.zgloszenia`, `silver.zgloszenia_odrzucone` | dedup, `TRY_CAST`, reguly z `jakosc.py`, MERGE po (`_partia`, `id_wiersza`); wyjatek, gdy odrzuconych > 1% albo partia pusta |
 | `gold` | silver, ta partia | `gold.cechy_szkod` | 7 cech + etykieta + `_partia`, `replaceWhere` (rerun idempotentny) |
-| `trening` | gold, ta partia -> pandas | model `szkody_demo.ml.szkoda_do_weryfikacji` | split jak w Etapie 15; oba modele w MLflow; lepszy zarejestrowany; alias `champion` wg bramki |
+| `trening` | gold, ta partia -> pandas | model `<katalog>.ml.szkoda_do_weryfikacji` | split jak w Etapie 15; oba modele w MLflow; lepszy zarejestrowany; alias `champion` wg bramki |
 
 Trening idzie na pandas/scikit-learn, nie na Spark ML: przy 3500 wierszach rozproszony trening
 nic nie daje - to swiadoma decyzja. Spark robi tu to, w czym jest dobry (tabele Delta, MERGE, reguly SQL).
@@ -66,24 +69,68 @@ wheela, wiec kod zrodlowy w `src/` jest jedynym zrodlem prawdy (zadnej kopii w n
 Zaleznosci wheela (numpy, pandas, scikit-learn, mlflow) bez pinow - na runtime ML sa juz zainstalowane.
 Przy zmianie kodu podbij `version` w `pyproject.toml` albo wyczysc `dist/`, zeby w `dist/` nie lezaly dwa wheele.
 
-## Niesprawdzone do czasu biegu na Databricks
+## Przebiegi (Azure Databricks, 31.10.2026)
 
-- `databricks bundle validate` (CLI jeszcze nie ma): zgodnosc `databricks.yml` ze schematem, w tym
-  `workspace.host: ${var.host}`, `libraries.whl: ./dist/*.whl`, `{{job.parameters.*}}` w `parameters`
-  zadania oraz przekazanie JSON-a `{}` jako argumentu.
-- `spark_version` w `databricks.yml` to PLACEHOLDER (`17.3.x-cpu-ml-scala2.13`) - potwierdzic w zadaniu 2.
-- Unity Catalog: czy auto-metastore jest aktywny na trialu w swedencentral i czy `CREATE CATALOG IF NOT EXISTS`
-  przejdzie bez `MANAGED LOCATION`. Plan B (`hive_metastore` + rejestr workspace'u) NIE jest zakodowany.
-- `data_security_mode: SINGLE_USER` na jednowezlowym klastrze z UC; `/Users/<user>/szkody_demo` jako eksperyment.
-- Zachowanie Delta: `replaceWhere` przez `saveAsTable` w gold, MERGE z widoku tymczasowego,
-  `createDataFrame(pandas, schema=DDL)` w bronze.
-- MLflow na Databricks: `mlflow.register_model` do UC z URI modelu z `log_model`, kod bledu "brak aliasu/modelu"
-  w UC (kod `RESOURCE_DOES_NOT_EXIST`/`NOT_FOUND` albo HTTP 404 uznawany za brak championa), typ pola `version`.
-  Lokalnie sprawdzone tylko na MLflow 3.17.2 ze sqlite.
-- Zaleznosc `mlflow` w wheelu na runtime, gdzie jest tylko `mlflow-skinny`: pip dociagnie pelny `mlflow`.
+Job `szkody_pipeline`, runtime 17.3 LTS ML, klaster jobowy jednowezlowy `Standard_D4ds_v5`, Unity Catalog.
+Kazdy bieg = nowa partia 3500 wierszy; trening na partii (test = 1050 wierszy). Bieg trwa ok. 6-7 min,
+z czego wiekszosc to start klastra.
+
+| # | partia | przesuniecie (dryf) | odrzucone w silver | najlepszy model | PR AUC | ROC AUC | decyzja bramki |
+|---|---|---|---|---|---|---|---|
+| 1 | seed 1 | brak | 0 / 3500 | v1 `hgb` | 0,3951 | 0,7525 | brak championa -> v1 championem |
+| 2 | seed 2 | `{"suma_ubezpieczenia": 0.5, "rodzaj_mienia": 0.25}` | 0 / 3500 | v2 `hgb` | 0,4181 | 0,7823 | `0,4181 >= 0,3951 - 0,01` -> **promocja**, champion 1 -> 2 |
+| 3 | seed 3 | brak | 0 / 3500 | v3 `logreg` | 0,3790 | 0,7454 | `0,3790 < 0,4181 - 0,01` -> **odrzucony**, champion zostaje 2 |
+
+Log zadania `trening` z biegu 3 (doslownie):
+
+```
+bramka: odrzucony: pr_auc challengera 0.3790 vs champion 0.4181 (tol 0.01), ponizej progu 0.4081
+rejestr: <katalog>.ml.szkoda_do_weryfikacji wersja 3 (logreg), promowany=False, champion 2 -> 2
+```
+
+Przesuniecie w biegu 2 zostalo dobrane tak, zeby nie lamac regul jakosci (sprawdzone lokalnie w DuckDB:
+0 naruszen) - inaczej job padlby w `silver` na progu 1% odrzuconych, co tez jest poprawnym zachowaniem.
+
+## Ten sam problem: Azure ML (underwriter, Etap 15) vs Databricks (to repo)
+
+| | Azure ML (`underwriter_agent_demo`, `docs/MLOPS.md`) | Azure Databricks (to repo) |
+|---|---|---|
+| Orkiestracja | pipeline Azure ML: 4 komponenty (argparse, katalogi wej./wyj.) | job z bundla: 4 zadania `spark_python_task`, kod z wheela |
+| Dane | pliki w katalogach komponentow, jedna partia na bieg | tabele Delta bronze/silver/gold w Unity Catalog, partie dopisywane, MERGE, `replaceWhere` |
+| Jakosc danych | walidacja w kodzie Pythona | reguly jako dane -> wyrazenia SQL; te same napisy testowane lokalnie w DuckDB i wykonywane przez Spark |
+| Compute | serverless `Standard_DS2_v2` | klaster jobowy single-node `D4ds_v5`, ginie po jobie |
+| Rejestr modeli | rejestr Azure ML przez MLflow; **aliasy nie dzialaja (404)**, `register_model` nie dziala -> champion = tag modelu | Unity Catalog (`databricks-uc`): `register_model` i **natywny alias `champion`** dzialaja |
+| Bramka | `ryzyko/bramka.py` (PR AUC, tolerancja 0,01) | ta sama funkcja (kopia), wynik = alias + tagi wersji |
+| Wdrozenie | `pipeline_ml/uruchom.py` (SDK) | `databricks bundle deploy` (deklaratywnie, targety dev/demo) |
+| Infra | Terraform, wspolny stan kilku etapow | Terraform, osobny lokalny stan |
+
+Wniosek: przy 3500-5000 wierszach Spark nie przyspiesza treningu (tu trening i tak idzie na pandas),
+ale Databricks daje dwie rzeczy, ktorych w Azure ML trzeba bylo obchodzic: tabele Delta z historia
+partii i rejestr w Unity Catalog z dzialajacymi aliasami.
+
+## Czego nauczyl bieg na zywo (31.10)
+
+- Azure Free Trial nie przyjmuje sku `trial` workspace'u (`TrialSkuNotSupportedForSubscriptionType`) -> `premium`.
+- `Standard_DS3_v2` niedostepny w swedencentral (`CLOUD_PROVIDER_RESOURCE_STOCKOUT`) -> `Standard_D4ds_v5`.
+- Auto-metastore UC nowego workspace'u nie ma `storage_root`: `CREATE CATALOG IF NOT EXISTS` pada nawet,
+  gdy nic nie trzeba tworzyc (`INVALID_STATE`) -> pipeline uzywa katalogu workspace'u (zmienna `katalog`)
+  i tworzy tylko schematy.
+- `workspace.host` w `databricks.yml` nie przyjmuje `${var.*}` -> host poza repo, z `DATABRICKS_HOST`.
+- Databricks CLI z `auth_type=azure-cli` wymaga `DATABRICKS_AZURE_TENANT_ID`, gdy `az` ma kilka tenantow.
+- `bundle run --params` dzieli wartosci po przecinku, wiec JSON z kilkoma kluczami lepiej podac przez
+  `databricks jobs run-now --json`.
+
+## Uruchomienie na workspace
+
+```bash
+export DATABRICKS_HOST=https://adb-<id>.azuredatabricks.net   # output `url_workspace` z infra/
+export DATABRICKS_AUTH_TYPE=azure-cli DATABRICKS_AZURE_TENANT_ID=<tenant>
+databricks bundle deploy
+databricks bundle run szkody_pipeline --params seed=1
+```
 
 ## Infra i koszty
 
-Workspace tworzy Terraform w `infra/` (osobny lokalny tfstate; plan/apply uruchamia Kamil). Job cluster
-jednowezlowy `Standard_DS3_v2` (4 vCPU = limit regionu), wiec job i klaster interaktywny nie moga chodzic
-naraz. Destroy razem z reszta 08.11.2026.
+Workspace tworzy Terraform w `infra/` (osobny lokalny tfstate). Job cluster jednowezlowy
+`Standard_D4ds_v5` (4 vCPU = caly limit regionu na subskrypcji trial), wiec job i klaster interaktywny
+nie moga chodzic naraz. Koszt: VM tylko na czas biegu + DBU Premium Jobs. Destroy 08.11.2026.
