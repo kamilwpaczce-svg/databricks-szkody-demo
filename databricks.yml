@@ -1,0 +1,128 @@
+# Databricks Asset Bundle - mini-demo "szkody do weryfikacji" (Etap 22).
+# Job szkody_pipeline: bronze -> silver -> gold -> trening, jeden jednowezlowy job cluster.
+# Stan: PLIK NIEZWALIDOWANY `databricks bundle validate` (brak CLI/workspace'u w chwili pisania);
+# walidacja i deploy dopiero w zadaniach 2-3 SPEC_ETAP22.md.
+
+bundle:
+  name: szkody_demo
+
+variables:
+  host:
+    description: URL workspace'u Azure Databricks (np. https://adb-<id>.<n>.azuredatabricks.net). Nieznany do apply Terraforma.
+    default: https://adb-0000000000000000.0.azuredatabricks.net # PLACEHOLDER - nadpisz: --var host=... albo BUNDLE_VAR_host
+  katalog:
+    description: Katalog Unity Catalog z tabelami i modelem
+    default: szkody_demo
+  spark_version:
+    description: Runtime Databricks (LTS ML, bo scikit-learn i MLflow sa w obrazie)
+    default: 17.3.x-cpu-ml-scala2.13 # PLACEHOLDER - potwierdzic w zadaniu 2 (databricks clusters spark-versions)
+  node_type_id:
+    description: Typ VM. DS3_v2 = 4 vCPU = caly limit regionu (zmierzone 31.10), wiec tylko jeden klaster naraz
+    default: Standard_DS3_v2
+  eksperyment:
+    description: Sciezka eksperymentu MLflow w workspace
+    default: /Users/${workspace.current_user.userName}/szkody_demo
+
+workspace:
+  host: ${var.host}
+
+# Pakiet `szkody` budowany do wheela; zadania instaluja go przez `libraries.whl`.
+# Wymaga `uv` na maszynie, ktora robi deploy (lokalnie i w CI).
+artifacts:
+  szkody_whl:
+    type: whl
+    build: uv build --wheel
+    path: .
+
+resources:
+  jobs:
+    szkody_pipeline:
+      name: szkody_pipeline
+      max_concurrent_runs: 1 # limit 4 vCPU w regionie: dwa biegi naraz nie wejda
+      timeout_seconds: 3600 # straznik kosztu: zawieszony bieg nie trzyma VM w nieskonczonosc
+      parameters:
+        - name: seed
+          default: "1"
+        - name: przesuniecie
+          default: "{}"
+      job_clusters:
+        - job_cluster_key: klaster_szkody
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            num_workers: 0
+            data_security_mode: SINGLE_USER # Unity Catalog wymaga trybu single user / shared
+            spark_conf:
+              spark.databricks.cluster.profile: singleNode
+              spark.master: local[*, 4]
+            custom_tags:
+              ResourceClass: SingleNode
+      tasks:
+        - task_key: bronze
+          job_cluster_key: klaster_szkody
+          spark_python_task:
+            python_file: ./src/szkody/zadania/bronze.py
+            parameters:
+              - --katalog
+              - ${var.katalog}
+              - --seed
+              - "{{job.parameters.seed}}"
+              - --przesuniecie
+              - "{{job.parameters.przesuniecie}}"
+          libraries:
+            - whl: ./dist/*.whl
+        - task_key: silver
+          depends_on:
+            - task_key: bronze
+          job_cluster_key: klaster_szkody
+          spark_python_task:
+            python_file: ./src/szkody/zadania/silver.py
+            parameters:
+              - --katalog
+              - ${var.katalog}
+              - --seed
+              - "{{job.parameters.seed}}"
+              - --przesuniecie
+              - "{{job.parameters.przesuniecie}}"
+          libraries:
+            - whl: ./dist/*.whl
+        - task_key: gold
+          depends_on:
+            - task_key: silver
+          job_cluster_key: klaster_szkody
+          spark_python_task:
+            python_file: ./src/szkody/zadania/gold.py
+            parameters:
+              - --katalog
+              - ${var.katalog}
+              - --seed
+              - "{{job.parameters.seed}}"
+              - --przesuniecie
+              - "{{job.parameters.przesuniecie}}"
+          libraries:
+            - whl: ./dist/*.whl
+        - task_key: trening
+          depends_on:
+            - task_key: gold
+          job_cluster_key: klaster_szkody
+          spark_python_task:
+            python_file: ./src/szkody/zadania/train.py
+            parameters:
+              - --katalog
+              - ${var.katalog}
+              - --seed
+              - "{{job.parameters.seed}}"
+              - --przesuniecie
+              - "{{job.parameters.przesuniecie}}"
+              - --eksperyment
+              - ${var.eksperyment}
+          libraries:
+            - whl: ./dist/*.whl
+
+targets:
+  dev:
+    mode: development
+    default: true
+  demo:
+    # Bez `mode: production` (wymaga run_as i wlasnego root_path) - do potwierdzenia przy CI (zadanie 4).
+    default: false
