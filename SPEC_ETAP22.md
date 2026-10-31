@@ -81,7 +81,7 @@ Postęp: commit po każdym zadaniu (repo lokalne), stan w tabeli niżej.
 |---|---|---|
 | 0 | ZROBIONE 31.10 (lokalnie) | df66b47; pytest 41 zielonych; kopie = underwriter@a1e0a3e poza importem i dopiskiem (diff --strip-trailing-cr) |
 | 1 | KOD GOTOWY 31.10, niezwalidowany/niewdrozony | b415b56; pytest 110 zielonych lokalnie; `bundle validate` i bieg na Databricks NIESPRAWDZONE (lista w README) |
-| 2 | — | |
-| 3 | — | |
+| 2 | ZROBIONE 31.10 | 3201a36; workspace premium `adb-XXXX`, UC auto-metastore BEZ storage_root -> katalog workspace'u `dbw_szkody_demo_kk1` (CREATE CATALOG odrzucane, b0fd3c2); CLI wymaga `DATABRICKS_AZURE_TENANT_ID` |
+| 3 | ZROBIONE 31.10 | job 377714994460053, 17.3 LTS ML, D4ds_v5. Bieg 1 seed=1 czysty: v1 hgb PR AUC 0,395 -> champion (brak poprzedniego). Bieg 2 seed=2 dryf `{suma_ubezpieczenia:0.5, rodzaj_mienia:0.25}` (run 793309151496645, 15:01-15:08): v2 hgb 0,418 -> PROMOCJA. Bieg 3 seed=3 czysty (run 956735281161038): v3 logreg 0,379 < 0,408 -> ODRZUCONY, champion zostaje v2. Odrzuconych w silver 0/3500 w kazdej partii |
 | 4 | — | |
 | 5 | — | |
