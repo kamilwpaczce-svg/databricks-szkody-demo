@@ -51,8 +51,8 @@ def test_bundle_nazwa_i_targety(bundle):
     assert "demo" in bundle["targets"]
 
 
-def test_bundle_host_i_spark_version_to_zmienne_z_placeholderem(bundle):
-    assert bundle["workspace"]["host"].startswith("https://adb-")
+def test_bundle_bez_hosta_w_repo_i_spark_version_jako_zmienna(bundle):
+    assert "host" not in (bundle.get("workspace") or {})
     assert "spark_version" in bundle["variables"] and "default" in bundle["variables"]["spark_version"]
 
 

@@ -20,9 +20,9 @@ variables:
     description: Sciezka eksperymentu MLflow w workspace
     default: /Users/${workspace.current_user.userName}/szkody_demo
 
-workspace:
-  # Bez zmiennej: workspace.host nie przyjmuje interpolacji (bundle validate 31.10).
-  host: https://adb-XXXX.azuredatabricks.net # dbw-szkody-demo-kk1 (infra/)
+# workspace.host celowo NIE jest w repo (publiczne): CLI bierze go z DATABRICKS_HOST
+# (lokalnie: output `url_workspace` z infra/, w CI: sekret repo). Interpolacja ${var.*}
+# w tym polu nie jest dozwolona (bundle validate 31.10).
 
 # Pakiet `szkody` budowany do wheela; zadania instaluja go przez `libraries.whl`.
 # Wymaga `uv` na maszynie, ktora robi deploy (lokalnie i w CI).
