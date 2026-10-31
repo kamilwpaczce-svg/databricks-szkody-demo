@@ -52,7 +52,7 @@ def test_bundle_nazwa_i_targety(bundle):
 
 
 def test_bundle_host_i_spark_version_to_zmienne_z_placeholderem(bundle):
-    assert bundle["workspace"]["host"] == "${var.host}"
+    assert bundle["workspace"]["host"].startswith("https://adb-")
     assert "spark_version" in bundle["variables"] and "default" in bundle["variables"]["spark_version"]
 
 

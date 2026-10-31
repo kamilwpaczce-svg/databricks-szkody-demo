@@ -7,15 +7,12 @@ bundle:
   name: szkody_demo
 
 variables:
-  host:
-    description: URL workspace'u Azure Databricks (np. https://adb-<id>.<n>.azuredatabricks.net). Nieznany do apply Terraforma.
-    default: https://adb-0000000000000000.0.azuredatabricks.net # PLACEHOLDER - nadpisz: --var host=... albo BUNDLE_VAR_host
   katalog:
     description: Katalog Unity Catalog z tabelami i modelem
-    default: szkody_demo
+    default: dbw_szkody_demo_kk1 # katalog workspace'u: metastore bez storage_root, CREATE CATALOG bez MANAGED LOCATION nie przejdzie (31.10)
   spark_version:
     description: Runtime Databricks (LTS ML, bo scikit-learn i MLflow sa w obrazie)
-    default: 17.3.x-cpu-ml-scala2.13 # PLACEHOLDER - potwierdzic w zadaniu 2 (databricks clusters spark-versions)
+    default: 17.3.x-cpu-ml-scala2.13 # 17.3 LTS ML, Spark 4.0 (potwierdzone 31.10: databricks clusters spark-versions)
   node_type_id:
     description: Typ VM. DS3_v2 = 4 vCPU = caly limit regionu (zmierzone 31.10), wiec tylko jeden klaster naraz
     default: Standard_DS3_v2
@@ -24,7 +21,8 @@ variables:
     default: /Users/${workspace.current_user.userName}/szkody_demo
 
 workspace:
-  host: ${var.host}
+  # Bez zmiennej: workspace.host nie przyjmuje interpolacji (bundle validate 31.10).
+  host: https://adb-XXXX.azuredatabricks.net # dbw-szkody-demo-kk1 (infra/)
 
 # Pakiet `szkody` budowany do wheela; zadania instaluja go przez `libraries.whl`.
 # Wymaga `uv` na maszynie, ktora robi deploy (lokalnie i w CI).
