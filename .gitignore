@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+mlruns/
+mlflow.db
+dist/
+build/
+.databricks/
+
+# infra: lokalny stan terraform (sekrety/stan poza gitem)
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.backup
+infra/*.tfplan
+infra/*.tfvars
