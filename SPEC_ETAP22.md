@@ -19,8 +19,8 @@ Poza zakresem: Delta Live Tables / Lakeflow, Feature Store online, serving endpo
    bez `cechy_ze_stanu`), `ryzyko/model.py`, `ryzyko/bramka.py`. Nagłówek każdego pliku: „skopiowane z
    underwriter_agent_demo@a1e0a3e, Etap 15”.
 2. **Infra = osobny Terraform w tym repo, osobny lokalny tfstate.** NIGDY nie dotykamy `etap13.tfstate` underwritera.
-   RG `rg-databricks-demo` (swedencentral), `azurerm_databricks_workspace` sku `trial` (Premium z darmowym DBU
-   przez 14 dni; jeśli sku `trial` niedostępne → `premium`, flaga kosztu). Bez VNet injection.
+   RG `rg-databricks-demo` (swedencentral), `azurerm_databricks_workspace` sku `premium` (`trial` odrzucony 31.10:
+   TrialSkuNotSupportedForSubscriptionType na Free Trial; DBU z kredytu, szac. 2–5 $ na całe demo — NIESPRAWDZONE). Bez VNet injection.
    `plan`/`apply` uruchamia Kamil. Rejestracja providera `Microsoft.Databricks` — Kamil (`az provider register`).
 3. **Compute:** job cluster jednowęzłowy `Standard_DS3_v2` (4 vCPU = cały limit regionu 4/4, zmierzone 31.10),
    `spark_version` LTS ML (bieżące LTS z `databricks clusters spark-versions`), `num_workers: 0`,
@@ -51,7 +51,7 @@ Poza zakresem: Delta Live Tables / Lakeflow, Feature Store online, serving endpo
    Uwierzytelnienie: Azure OIDC (`azure/login`) + Databricks CLI `auth_type: azure-cli`. Service principal
    underwritera (ten sam app registration, nowy federated credential dla nowego repo) — dodanie go do
    workspace'u robi Kamil. Uruchamianie joba w CI: tylko `workflow_dispatch` (koszt VM), nie przy każdym pushu.
-10. **Koszt:** VM DS3_v2 + dyski + IP podczas biegu joba (~kilka–kilkanaście min/bieg); DBU 0 w trialu.
+10. **Koszt:** VM DS3_v2 + dyski + IP podczas biegu joba (~kilka–kilkanaście min/bieg); DBU Premium jobs z kredytu.
     Po każdej sesji: Cost Management. Destroy razem z resztą 08.11 (`terraform destroy` W TYM repo + kontrola,
     że managed RG `databricks-rg-*` zniknęła).
 
@@ -79,8 +79,8 @@ Postęp: commit po każdym zadaniu (repo lokalne), stan w tabeli niżej.
 
 | # | Status | Commit / dowód |
 |---|---|---|
-| 0 | — | |
-| 1 | — | |
+| 0 | ZROBIONE 31.10 (lokalnie) | df66b47; pytest 41 zielonych; kopie = underwriter@a1e0a3e poza importem i dopiskiem (diff --strip-trailing-cr) |
+| 1 | KOD GOTOWY 31.10, niezwalidowany/niewdrozony | b415b56; pytest 110 zielonych lokalnie; `bundle validate` i bieg na Databricks NIESPRAWDZONE (lista w README) |
 | 2 | — | |
 | 3 | — | |
 | 4 | — | |
